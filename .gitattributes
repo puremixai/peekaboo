@@ -1,0 +1,14 @@
+# 文本文件统一按 LF 存储（工作区里是 LF 还是 CRLF 都能正确比较，避免生成文件反复出现"已修改"）
+* text=auto eol=lf
+
+# 二进制文件不做任何换行符转换
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.xlsx binary
+*.xls  binary
+*.woff binary
+*.woff2 binary
+*.ttf  binary
