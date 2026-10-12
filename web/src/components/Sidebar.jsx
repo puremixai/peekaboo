@@ -60,7 +60,7 @@ export default function Sidebar({
   return (
     <aside className="side">
       <header className="side-head">
-        <h1>北京进京摄像头避让导航</h1>
+        <h1>幽州迂道览胜舆</h1>
         <p>
           数据来源 <b>jinjing365.com</b>，共 <b>{points.length || '—'}</b> 个点位（坐标 GCJ-02）。
           点击地图上任意点位即可就地查看原站详情（精确到秒的更新时间 + 违章截图 + 车主评论）。
