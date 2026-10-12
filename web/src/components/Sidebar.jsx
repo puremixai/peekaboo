@@ -65,7 +65,7 @@ export default function Sidebar({
         <h1>幽州迂道览胜舆</h1>
         <p>
           共 <b>{points.length || '—'}</b> 个点位（坐标 GCJ-02）。
-          点击地图上任意点位即可就地查看详情（精确到秒的更新时间 + 违章截图 + 车主评论）。
+          点击地图上任意点位即可就地查看详情（精确到秒的更新时间 + 现场截图 + 车主评论）。
         </p>
       </header>
 
@@ -106,7 +106,7 @@ export default function Sidebar({
           onChange={(e) => setRadius(+e.target.value)}
         />
         <p className="hint">
-          摄像头与路线的距离小于该值就算「经过」。100 米能避开大部分路口，再往大可能避不开（路网被逼死）。
+          点位与路线的距离小于该值就算「经过」。100 米能避开大部分路口，再往大可能避不开（路网被逼死）。
         </p>
 
         <label className="field">
@@ -218,7 +218,7 @@ export default function Sidebar({
       <section className="side-sec">
         <h2>显示选项</h2>
         {[
-          ['points', '显示全部摄像头点位'],
+          ['points', '显示全部点位'],
           ['corridor', '显示避让走廊（±半径的蓝色带）'],
           ['near', '显示走廊内点位（橙）'],
           ['areas', '显示避让区域（黄框）'],

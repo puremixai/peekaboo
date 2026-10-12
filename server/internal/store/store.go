@@ -23,7 +23,7 @@ const (
 	cellSize = 0.01 // 空间网格边长（度），约 1.1km
 )
 
-// Camera 是一个进京证摄像头点位。
+// Camera 是一个点位。
 type Camera struct {
 	Name     string  `json:"name"`
 	Lng      float64 `json:"lng"`

@@ -109,10 +109,10 @@ export default function PointPopup({ point, place, onLightbox, onClose }) {
                   />
                 ))}
               </div>
-              <div className="popup-cap">违章截图 {imgs.length} 张 · 点击放大</div>
+              <div className="popup-cap">现场截图 {imgs.length} 张 · 点击放大</div>
             </>
           ) : (
-            <div className="popup-note">该点位未上传违章截图</div>
+            <div className="popup-note">该点位未上传现场截图</div>
           )}
 
           {comments.length > 0 ? (

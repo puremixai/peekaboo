@@ -5,8 +5,8 @@ export const TYPE_NAME = {
   2: '主要抓拍点位',
   3: '仅拍摄早晚高峰',
   4: '已停拍或个例',
-  5: '拍未办六环内进京证 + 违反早晚高峰',
-  6: '办理六环外进京证即可通行的区域',
+  5: '未办证通行 + 违反早晚高峰',
+  6: '办证后即可通行的区域',
 }
 
 export const TYPE_COLOR = {
@@ -19,7 +19,7 @@ export const TYPE_COLOR = {
 
 export const RED_TYPE = '2'
 
-// 上游资源地址。详情页链接与违章截图都从这里拼绝对地址，属功能必需，不可删除。
+// 上游资源地址。详情页链接与现场截图都从这里拼绝对地址，属功能必需，不可删除。
 export const SITE = 'https://www.jinjing365.com'
 export const IMG_PREFIX = '/upload/image/' // 详情页图片路径前缀
 

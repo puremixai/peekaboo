@@ -1,4 +1,4 @@
-# 幽州迂道览胜舆（北京进京证摄像头避让导航）—— 一键部署
+# 幽州迂道览胜舆 —— 一键部署
 #
 #   cp .env.example .env    # 填入高德 Key
 #   docker compose up -d --build

@@ -6,7 +6,7 @@
     python update_points.py --dry-run      # 只对比报告，不写任何文件
     python update_points.py --html x.html  # 用本地 HTML（离线调试 / 复现问题）
 
-变更历史追加到 changes.json（每次一条），便于前端或人工追溯"什么时候多了/少了哪个摄像头"。
+变更历史追加到 changes.json（每次一条），便于前端或人工追溯"什么时候多了/少了哪个点位"。
 
 为什么点位数据用「整体替换」而不是增量：
 原站首页内联了全部点位的权威列表，重新抓一次就是全量快照，不存在增量对不上的问题。
@@ -54,7 +54,7 @@ def brief(rec, key=None):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="更新进京证摄像头点位数据")
+    ap = argparse.ArgumentParser(description="更新点位数据")
     ap.add_argument("--dry-run", action="store_true", help="只对比并报告，不写文件")
     ap.add_argument("--html", help="改用本地 HTML 文件，不联网")
     args = ap.parse_args()

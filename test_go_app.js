@@ -155,6 +155,8 @@ async function ensureView(page, lng, lat, zoom = 15) {
 
   // 页面不应再出现数据来源相关文案（已按需求从 UI 移除）。
   // 注意：jinjing365.com 这个域名本身必须保留——详情页链接与违章截图都靠它拼绝对地址。
+  // 同理，body 文本里可能出现「进京证」等字样（来自车主评论原文），那是用户内容，
+  // 不能作为判定依据；这里只查我们自己的文案：整页的来源词 + 侧栏头部 + 图层开关。
   const pageText = await p.evaluate(() => document.body.innerText)
   const leaked = ['数据来源', '进京网', '原站', '关于本站'].filter((s) => pageText.includes(s))
   if (leaked.length) {
@@ -162,6 +164,22 @@ async function ensureView(page, lng, lat, zoom = 15) {
     console.log('\n页面残留来源文案 ✘ :', leaked.join(', '))
   } else {
     console.log('\n页面无数据来源文案 ✔')
+  }
+
+  // 项目自我描述里不应再出现显式业务名（侧栏头部 + 显示选项 + 类型图例）
+  const selfDesc = await p.evaluate(() => {
+    const pick = (sel) =>
+      Array.from(document.querySelectorAll(sel))
+        .map((e) => e.innerText)
+        .join(' ')
+    return pick('.side-head') + ' ' + pick('label.check') + ' ' + pick('ul.legend')
+  })
+  const named = ['进京证', '摄像头'].filter((s) => selfDesc.includes(s))
+  if (named.length) {
+    errs.push('[侧栏文案残留业务名] ' + named.join(', '))
+    console.log('侧栏文案残留业务名 ✘ :', named.join(', '))
+  } else {
+    console.log('侧栏文案无显式业务名 ✔')
   }
 
   if (errs.length) {

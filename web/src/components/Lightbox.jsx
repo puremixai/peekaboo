@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 
-/** 违章截图放大层：点击任意处关闭，Esc 关闭，← → 切换 */
+/** 现场截图放大层：点击任意处关闭，Esc 关闭，← → 切换 */
 export default function Lightbox({ items, idx, onClose, onStep }) {
   useEffect(() => {
     const onKey = (e) => {
