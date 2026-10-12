@@ -13,10 +13,12 @@ package httpapi
 import (
 	"compress/gzip"
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -40,14 +42,14 @@ const DefaultCommentLimit = 20
 // Server 聚合依赖。
 type Server struct {
 	cfg   config.Config
-	st    *store.Store
+	st    *store.Holder
 	pl    *planner.Planner
 	am    *amap.Client
 	proxy *http.Client // 用于 /_AMapService/ 反向代理
 }
 
 // New 创建 API 服务。
-func New(cfg config.Config, st *store.Store, pl *planner.Planner, am *amap.Client) *Server {
+func New(cfg config.Config, st *store.Holder, pl *planner.Planner, am *amap.Client) *Server {
 	return &Server{
 		cfg: cfg, st: st, pl: pl, am: am,
 		proxy: &http.Client{Timeout: 30 * time.Second},
@@ -63,6 +65,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/points/{id}", s.pointDetail)
 	mux.HandleFunc("POST /api/plan", s.plan)
 	mux.HandleFunc("GET /api/tips", s.tips)
+	// 数据热重载：改完 JSON 不用重启服务
+	mux.HandleFunc("POST /api/admin/reload", s.reload)
 	// 高德 JS API 的安全密钥代理：前端只拿到 /_AMapService 这个地址，
 	// 真正的 securityJsCode 由本服务在转发时注入（见 amapProxy）。
 	mux.HandleFunc("/_AMapService/", s.amapProxy)
@@ -75,6 +79,57 @@ func (s *Server) Handler() http.Handler {
 		h = logMW(h)
 	}
 	return h
+}
+
+/* ---------------- 数据热重载 ---------------- */
+
+// reload 重新从磁盘加载 cameras.json / details.json / comments.json。
+//
+// 配合 update_points.py 使用：抓取脚本改完 JSON → 调一次这个接口即可生效，
+// 不用重启容器。加载走的是新的 Store 实例 + 原子指针替换，
+// 在途的规划请求仍使用它们各自开始时拿到的旧快照，不会读到半新半旧的数据。
+//
+// 安全：默认只允许本机调用（curl localhost 可直接用）。
+// 若要从容器外或 CI 触发，设置 ADMIN_TOKEN 后带 X-Admin-Token 请求头。
+func (s *Server) reload(w http.ResponseWriter, r *http.Request) {
+	if !s.adminAllowed(r) {
+		writeErr(w, http.StatusForbidden,
+			"无权调用（默认仅限本机；如需远程触发请设置 ADMIN_TOKEN 并带 X-Admin-Token 头）")
+		return
+	}
+	t0 := time.Now()
+	st, err := store.Load(s.cfg.DataDir)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "重新加载失败: "+err.Error())
+		return
+	}
+	s.st.Replace(st)
+	pts, det, cm, cmTotal := st.Stats()
+	log.Printf("热重载完成：点位 %d · 详情 %d · 有评论点位 %d（评论 %d 条）耗时 %dms",
+		pts, det, cm, cmTotal, time.Since(t0).Milliseconds())
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok": true, "points": pts, "details": det,
+		"commentPoints": cm, "comments": cmTotal,
+		"ms": time.Since(t0).Milliseconds(),
+	})
+}
+
+// adminAllowed 判断调用方是否有权触发管理操作。
+func (s *Server) adminAllowed(r *http.Request) bool {
+	if s.cfg.AdminToken != "" {
+		tok := r.Header.Get("X-Admin-Token")
+		if tok == "" {
+			tok = r.URL.Query().Get("token")
+		}
+		return subtle.ConstantTimeCompare([]byte(tok), []byte(s.cfg.AdminToken)) == 1
+	}
+	// 没配令牌就只认本机
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 /* ---------------- 高德安全密钥代理 ---------------- */
@@ -149,7 +204,7 @@ func (s *Server) amapProxy(w http.ResponseWriter, r *http.Request) {
 /* ---------------- 基础接口 ---------------- */
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
-	pts, det, cm, cmTotal := s.st.Stats()
+	pts, det, cm, cmTotal := s.st.Get().Stats()
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":            true,
 		"points":        pts,
@@ -211,9 +266,10 @@ type pointDTO struct {
 }
 
 func (s *Server) points(w http.ResponseWriter, r *http.Request) {
-	out := make([]pointDTO, len(s.st.Cameras))
-	for i := range s.st.Cameras {
-		c := &s.st.Cameras[i]
+	st := s.st.Get()
+	out := make([]pointDTO, len(st.Cameras))
+	for i := range st.Cameras {
+		c := &st.Cameras[i]
 		out[i] = pointDTO{
 			Lng: c.Lng, Lat: c.Lat, Type: c.Type, Name: c.Name,
 			Time: c.Time, EditTime: c.EditTime, DetailID: c.DetailID,
@@ -252,10 +308,11 @@ func (s *Server) pointDetail(w http.ResponseWriter, r *http.Request) {
 		"total":    0,
 		"limit":    limit,
 	}
-	if d, ok := s.st.DetailOf(id); ok {
+	st := s.st.Get()
+	if d, ok := st.DetailOf(id); ok {
 		resp["detail"] = detailDTO{Time: d.Time, Imgs: d.Imgs, Missing: d.Missing}
 	}
-	if cs := s.st.CommentsOf(id); len(cs) > 0 {
+	if cs := st.CommentsOf(id); len(cs) > 0 {
 		resp["total"] = len(cs)
 		if len(cs) > limit {
 			cs = cs[:limit]

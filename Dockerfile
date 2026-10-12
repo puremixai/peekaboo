@@ -36,11 +36,10 @@ WORKDIR /app
 COPY --from=api /out/navserver /app/navserver
 COPY --from=web /web/dist        /app/web
 
-# 数据打包进镜像，开箱即用；
-# 想换数据可以挂载卷覆盖（见 docker-compose.yml 里的说明），或设置 DATA_DIR。
-COPY cameras.json  /app/data/cameras.json
-COPY details.json  /app/data/details.json
-COPY comments.json /app/data/comments.json
+# 数据打包进镜像，开箱即用。
+# 想更新数据不必重新构建镜像：docker-compose.yml 里把 ./data 挂载到 /app/data，
+# 宿主机改完文件调一次 POST /api/admin/reload 即可生效。
+COPY data/ /app/data/
 
 ENV DATA_DIR=/app/data \
     WEB_DIR=/app/web \

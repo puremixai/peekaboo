@@ -4,6 +4,9 @@
 #   docker compose up -d --build
 #   浏览器打开 http://localhost:8080
 #
+# 更新点位数据（不用重新 build 镜像，也不用重启容器）：
+#   ./update.sh             # 抓首页 → 对比 → 补抓详情/评论 → 热重载
+#
 # 高德 Key 只作为环境变量注入容器，不会写进镜像层，也不会下发到浏览器
 # （浏览器只会拿到 AMAP_JS_KEY，那是必须暴露的 Web 端 Key）。
 
@@ -24,8 +27,13 @@ services:
       AMAP_WEB_KEY: ${AMAP_WEB_KEY:-}
       # 不填则复用 AMAP_WEB_KEY
       AMAP_JS_KEY: ${AMAP_JS_KEY:-}
-      # JS API 2.0 安全密钥，可选
+      # JS API 2.0 安全密钥，可选。填了就自动启用 /_AMapService 代理转发，密钥不出服务端
       AMAP_SECURITY_CODE: ${AMAP_SECURITY_CODE:-}
+
+      # ---- 数据更新 ----
+      # 管理接口令牌。留空则 /api/admin/reload 只允许容器内调用；
+      # 要从宿主机触发（推荐做法，见 update.sh）就设一个随机串。
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
 
       # ---- 其它 ----
       AMAP_CITY: ${AMAP_CITY:-北京}
@@ -34,13 +42,13 @@ services:
       AMAP_TIMEOUT_SEC: ${AMAP_TIMEOUT_SEC:-20}
       TZ: Asia/Shanghai
 
-    # 数据已打包进镜像。若想改用宿主机上的 JSON（比如刚重新抓取过），
-    # 取消下面注释即可覆盖镜像内数据，改完只需 restart，不用重新 build：
-    #
-    # volumes:
-    #   - ./cameras.json:/app/data/cameras.json:ro
-    #   - ./details.json:/app/data/details.json:ro
-    #   - ./comments.json:/app/data/comments.json:ro
+    volumes:
+      # 数据目录挂载：宿主机上跑抓取脚本改完 data/*.json，
+      # 调一次 POST /api/admin/reload 就生效，不用重新 build 镜像、也不用重启容器。
+      #
+      # ⚠ 必须挂「目录」而不是单个文件：写文件用的是 os.replace 原子替换，
+      #   会换掉 inode，文件级 bind mount 会一直指向旧 inode 而看不到更新。
+      - ./data:/app/data
 
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/api/health"]

@@ -33,7 +33,7 @@ web/dist
 /shot_*.png
 /避让方案对比.png
 
-# 抓取过程与派生数据
+# 抓取过程与派生数据（data/ 下的三个 JSON 必须保留，镜像要打包进 /app/data）
 /scrape.log
 /comments.log
 /plans.json
@@ -41,6 +41,10 @@ web/dist
 /comments_failed.json
 /cameras.csv
 /北京进京证摄像头坐标.xlsx
+/data/*_failed.json
+/data/*.csv
+/data/*.xlsx
+/data/*.tmp
 
 # 密钥与本地配置
 /amap_key.txt

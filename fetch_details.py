@@ -28,9 +28,11 @@ from requests.adapters import HTTPAdapter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 BASE = os.path.dirname(os.path.abspath(__file__))
+# 数据统一放 data/ 下，便于 docker compose 整目录挂载
+DATA_DIR = os.path.join(BASE, 'data')
 SITE = 'https://www.jinjing365.com'
-OUT = os.path.join(BASE, 'details.json')
-FAIL = os.path.join(BASE, 'details_failed.json')
+OUT = os.path.join(DATA_DIR, 'details.json')
+FAIL = os.path.join(DATA_DIR, 'details_failed.json')
 
 WORKERS = 6
 TIMEOUT = 30
@@ -101,7 +103,7 @@ def fetch_one(cid):
 
 
 def main():
-    cams = json.load(open(os.path.join(BASE, 'cameras.json'), encoding='utf-8'))
+    cams = json.load(open(os.path.join(DATA_DIR, 'cameras.json'), encoding='utf-8'))
     ids = sorted({int(re.search(r'(\d+)', c['href']).group(1)) for c in cams})
     print(f'待抓取详情页：{len(ids)} 个', flush=True)
 

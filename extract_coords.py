@@ -13,6 +13,9 @@ import csv
 import os
 
 BASE = os.path.dirname(os.path.abspath(__file__))
+# 数据统一放 data/ 下，便于 docker compose 整目录挂载
+DATA_DIR = os.path.join(BASE, "data")
+os.makedirs(DATA_DIR, exist_ok=True)
 SRC = os.path.join(BASE, "index.html")
 HOMEPAGE = "https://www.jinjing365.com/index.asp"
 
@@ -102,11 +105,11 @@ for r in records:
 print("有效记录:", len(records), " 去重后:", len(uniq))
 
 # 3. 输出 JSON
-with open(os.path.join(BASE, "cameras.json"), "w", encoding="utf-8") as f:
+with open(os.path.join(DATA_DIR, "cameras.json"), "w", encoding="utf-8") as f:
     json.dump(uniq, f, ensure_ascii=False, indent=2)
 
 # 4. 输出 CSV (UTF-8 BOM, 方便 Excel 打开)
-with open(os.path.join(BASE, "cameras.csv"), "w", encoding="utf-8-sig", newline="") as f:
+with open(os.path.join(DATA_DIR, "cameras.csv"), "w", encoding="utf-8-sig", newline="") as f:
     w = csv.writer(f)
     w.writerow(["序号", "名称", "经度(GCJ-02)", "纬度(GCJ-02)", "类型aa", "更新时间time", "编辑时间edittime", "详情链接href"])
     for idx, r in enumerate(uniq, 1):

@@ -17,7 +17,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
-	"sync"
 )
 
 const (
@@ -55,7 +54,6 @@ type Store struct {
 	Comment map[string][]Comment
 
 	grid map[int64][]int32 // 空间网格 → 点位下标
-	mu   sync.RWMutex      // 目前只读，为后续热更新留出余地
 }
 
 var hrefRe = regexp.MustCompile(`/content/\?(\d+)\.html`)

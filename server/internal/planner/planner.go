@@ -89,18 +89,21 @@ type Result struct {
 }
 
 // Planner 持有数据与高德客户端。
+//
+// 数据通过 store.Holder 以原子指针访问：热重载换数据集时只换指针，
+// 规划过程中拿到的 *store.Store 是稳定快照，不会读到半新半旧的状态。
 type Planner struct {
-	st *store.Store
+	h  *store.Holder
 	am *amap.Client
 }
 
 // New 创建规划器。
-func New(st *store.Store, am *amap.Client) *Planner {
-	return &Planner{st: st, am: am}
+func New(h *store.Holder, am *amap.Client) *Planner {
+	return &Planner{h: h, am: am}
 }
 
-func (p *Planner) isTarget(r *run, idx int32) bool {
-	return r.targetAll || p.st.Cameras[idx].Type == RedType
+func (p *Planner) isTarget(st *store.Store, r *run, idx int32) bool {
+	return r.targetAll || st.Cameras[idx].Type == RedType
 }
 
 // 每次 Plan 调用期间的可变状态（避免挂在 Planner 上导致并发问题）。
@@ -134,17 +137,19 @@ func (p *Planner) Plan(ctx context.Context, req Request) (*Result, error) {
 		radius:    req.Radius,
 		exclude:   map[int32]bool{},
 	}
+	// 取一次数据快照，整个规划过程都用它，避免中途被热重载换掉
+	st := p.h.Get()
 
 	// 起终点 60 米内的点位无法避让（你本来就要进出这里）
-	for _, i := range p.st.NearbyAny(req.Start, EdgeExM) {
+	for _, i := range st.NearbyAny(req.Start, EdgeExM) {
 		r.exclude[i] = true
 	}
-	for _, i := range p.st.NearbyAny(req.End, EdgeExM) {
+	for _, i := range st.NearbyAny(req.End, EdgeExM) {
 		r.exclude[i] = true
 	}
 
 	// 起终点附近半径内的红点：提示用户这些避不开
-	edgeRed := p.edgeRed(req)
+	edgeRed := p.edgeRed(st, req)
 
 	// 第 0 条：基准路线（不避让）
 	base, err := p.drive(ctx, req.Start, req.End, "", req.Strategy)
@@ -152,13 +157,13 @@ func (p *Planner) Plan(ctx context.Context, req Request) (*Result, error) {
 		return nil, fmt.Errorf("基准算路失败: %w", err)
 	}
 	r.calls++
-	baseNear := p.st.FindNear(base.Poly, req.Radius, r.exclude)
+	baseNear := st.FindNear(base.Poly, req.Radius, r.exclude)
 	if baseNear == nil {
 		baseNear = []int32{} // 保证序列化成 [] 而不是 null
 	}
 	basePlan := Plan{
 		Label: "不避让（基准）", Dist: base.Distance, Dur: base.Duration,
-		Poly: base.Poly, Near: baseNear, Red: r.countRed(baseNear, p.st),
+		Poly: base.Poly, Near: baseNear, Red: r.countRed(baseNear, st),
 		Areas: []Area{}, // 显式空切片，避免序列化成 null
 	}
 
@@ -177,8 +182,8 @@ func (p *Planner) Plan(ctx context.Context, req Request) (*Result, error) {
 		}
 		// 1. 当前路线半径内、尚未被覆盖的目标点位
 		var nearIdx []int32
-		for _, i := range p.st.FindNear(cur.Poly, req.Radius, r.exclude) {
-			if !committed[i] && p.isTarget(r, i) {
+		for _, i := range st.FindNear(cur.Poly, req.Radius, r.exclude) {
+			if !committed[i] && p.isTarget(st, r, i) {
 				nearIdx = append(nearIdx, i)
 			}
 		}
@@ -193,7 +198,7 @@ func (p *Planner) Plan(ctx context.Context, req Request) (*Result, error) {
 		// 2. 按离路线由近到远排序后聚团
 		withD := make([]store.NearHit, 0, len(nearIdx))
 		for _, i := range nearIdx {
-			withD = append(withD, store.NearHit{Idx: i, Dist: geo.MinDistToPoly(p.st.Pos[i], cur.Poly)})
+			withD = append(withD, store.NearHit{Idx: i, Dist: geo.MinDistToPoly(st.Pos[i], cur.Poly)})
 		}
 		sort.Slice(withD, func(a, b int) bool { return withD[a].Dist < withD[b].Dist })
 		order := make([]int32, len(withD))
@@ -201,7 +206,7 @@ func (p *Planner) Plan(ctx context.Context, req Request) (*Result, error) {
 			order[i] = o.Idx
 		}
 
-		add := p.clusterAdaptive(order, req.Radius, room)
+		add := p.clusterAdaptive(st, order, req.Radius, room)
 		if len(add) == 0 {
 			break
 		}
@@ -223,7 +228,7 @@ func (p *Planner) Plan(ctx context.Context, req Request) (*Result, error) {
 			areas = areas[:len(areas)-len(add)] // 回滚本轮新增的区域
 			break
 		}
-		near := p.st.FindNear(res.Poly, req.Radius, r.exclude)
+		near := st.FindNear(res.Poly, req.Radius, r.exclude)
 		if near == nil {
 			near = []int32{} // 保证序列化成 [] 而不是 null
 		}
@@ -233,7 +238,7 @@ func (p *Planner) Plan(ctx context.Context, req Request) (*Result, error) {
 			Dur:    res.Duration,
 			Poly:   res.Poly,
 			Near:   near,
-			Red:    r.countRed(near, p.st),
+			Red:    r.countRed(near, st),
 			Areas:  append([]Area{}, areas...),
 			Rounds: round,
 		}
@@ -268,14 +273,14 @@ func (p *Planner) Plan(ctx context.Context, req Request) (*Result, error) {
 	return out, nil
 }
 
-func (p *Planner) edgeRed(req Request) []EdgeRed {
+func (p *Planner) edgeRed(st *store.Store, req Request) []EdgeRed {
 	out := make([]EdgeRed, 0, 16)
-	for i := range p.st.Cameras {
-		if p.st.Cameras[i].Type != RedType {
+	for i := range st.Cameras {
+		if st.Cameras[i].Type != RedType {
 			continue
 		}
-		ds := geo.DistM(p.st.Pos[i], req.Start)
-		de := geo.DistM(p.st.Pos[i], req.End)
+		ds := geo.DistM(st.Pos[i], req.Start)
+		de := geo.DistM(st.Pos[i], req.End)
 		m := math.Min(ds, de)
 		if m > req.Radius {
 			continue
@@ -312,11 +317,11 @@ func (p *Planner) drive(ctx context.Context, a, b [2]float64, av string, strateg
 
 // bboxAround 生成一个把所有成员点包住、并外扩 R 米的矩形，
 // 这样框内任意点位到路线的距离都 ≥ R。
-func (p *Planner) bboxAround(members []int32, R float64) Area {
+func (p *Planner) bboxAround(st *store.Store, members []int32, R float64) Area {
 	x0, y0 := math.MaxFloat64, math.MaxFloat64
 	x1, y1 := -math.MaxFloat64, -math.MaxFloat64
 	for _, m := range members {
-		c := p.st.Pos[m]
+		c := st.Pos[m]
 		x0 = math.Min(x0, c[0])
 		x1 = math.Max(x1, c[0])
 		y0 = math.Min(y0, c[1])
@@ -336,7 +341,7 @@ func (p *Planner) bboxAround(members []int32, R float64) Area {
 }
 
 // cluster 贪心聚团：按 order 顺序取锚点，吸收 clusterR 米内的其它点。
-func (p *Planner) cluster(order []int32, R, clusterR float64, maxRegions int) []Area {
+func (p *Planner) cluster(st *store.Store, order []int32, R, clusterR float64, maxRegions int) []Area {
 	used := make(map[int32]bool, len(order))
 	out := make([]Area, 0, maxRegions)
 	for _, i := range order {
@@ -352,25 +357,25 @@ func (p *Planner) cluster(order []int32, R, clusterR float64, maxRegions int) []
 			if used[j] {
 				continue
 			}
-			if geo.DistM(p.st.Pos[i], p.st.Pos[j]) <= clusterR {
+			if geo.DistM(st.Pos[i], st.Pos[j]) <= clusterR {
 				members = append(members, j)
 				used[j] = true
 			}
 		}
-		out = append(out, p.bboxAround(members, R))
+		out = append(out, p.bboxAround(st, members, R))
 	}
 	return out
 }
 
 // clusterAdaptive 逐步放大聚团半径，直到区域数装得下 room 个。
 // 这是突破高德 32 个避让区上限的关键。
-func (p *Planner) clusterAdaptive(order []int32, R float64, room int) []Area {
+func (p *Planner) clusterAdaptive(st *store.Store, order []int32, R float64, room int) []Area {
 	for _, step := range ClusterSteps {
-		if c := p.cluster(order, R, step, room+1); len(c) <= room {
+		if c := p.cluster(st, order, R, step, room+1); len(c) <= room {
 			return c
 		}
 	}
-	return p.cluster(order, R, 1e9, room)
+	return p.cluster(st, order, R, 1e9, room)
 }
 
 // avoidStr 拼成高德要求的 avoidpolygons 字符串。

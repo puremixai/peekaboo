@@ -19,6 +19,7 @@ type Config struct {
 	AmapTMO    time.Duration // 调用高德的单次超时
 	City       string        // 输入提示限定的城市
 	LogReqs    bool          // 是否打印每个请求
+	AdminToken string        // 管理接口令牌；为空则管理接口只允许本机访问
 }
 
 // Load 读取环境变量并套用默认值。
@@ -32,6 +33,7 @@ func Load() Config {
 		AmapSec:    env("AMAP_SECURITY_CODE", ""),
 		City:       env("AMAP_CITY", "北京"),
 		LogReqs:    envBool("LOG_REQUESTS", false),
+		AdminToken: env("ADMIN_TOKEN", ""),
 	}
 	c.AmapTMO = time.Duration(envInt("AMAP_TIMEOUT_SEC", 20)) * time.Second
 	// JS Key 没单独配就复用 Web Key（本项目实测同一个 Key 两种用途都可用）

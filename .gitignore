@@ -62,11 +62,18 @@ amap_key.txt
 /comments.log
 /details_failed.json
 /comments_failed.json
+/data/*_failed.json
 
 # 可由脚本重新生成的派生数据。
-# 注意：cameras.json / details.json / comments.json 是服务运行时必需的，不在此列。
+# 注意：data/ 下的 cameras.json / details.json / comments.json 是服务运行时必需的，不在此列。
 /cameras.csv
 /北京进京证摄像头坐标.xlsx
+/data/*.csv
+/data/*.xlsx
+# 原子写入（先写 .tmp 再 os.replace）的中间文件
+/data/*.tmp
+# 点位变更历史（update_points.py 每次运行追加一条，属运行期记录）
+/data/changes.json
 
 # 一次性临时文件（下划线开头）与测试中间导出
 /_*

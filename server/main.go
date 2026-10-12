@@ -42,10 +42,12 @@ func main() {
 	}
 
 	am := amap.New(cfg.AmapWebKey, cfg.AmapTMO)
-	pl := planner.New(st, am)
+	// 用 Holder 持有数据集，支持 /api/admin/reload 热重载而不重启进程
+	holder := store.NewHolder(st)
+	pl := planner.New(holder, am)
 	srv := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           httpapi.New(cfg, st, pl, am).Handler(),
+		Handler:           httpapi.New(cfg, holder, pl, am).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 		WriteTimeout:      httpapi.PlanTimeout + 30*time.Second, // 规划最长要跑一两分钟
 		IdleTimeout:       120 * time.Second,
