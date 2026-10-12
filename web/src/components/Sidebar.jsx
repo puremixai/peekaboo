@@ -242,7 +242,9 @@ export default function Sidebar({
       </section>
 
       <footer className="side-foot">
-        高德 Key 由服务端注入（{config?.jsKey ? '已配置' : '未配置'}）；避让算法在 Go 服务端执行。
+        高德 Key 由服务端注入（{config?.jsKey ? '已配置' : '未配置'}）；
+        安全密钥{config?.securityProxy ? '经服务端代理转发，前端不可见' : '未配置（未启用代理模式）'}；
+        避让算法在 Go 服务端执行。
       </footer>
     </aside>
   )

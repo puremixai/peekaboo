@@ -15,7 +15,7 @@ type Config struct {
 	WebDir     string        // 前端构建产物目录（index.html + assets/）
 	AmapWebKey string        // 高德 Web 服务 Key（仅服务端使用）
 	AmapJSKey  string        // 高德 JS API Key（下发给浏览器，需配 Referer 白名单）
-	AmapSec    string        // JS API 2.0 安全密钥，可空
+	AmapSec    string        // JS API 2.0 安全密钥；配了就走 /_AMapService 代理转发，不下发前端
 	AmapTMO    time.Duration // 调用高德的单次超时
 	City       string        // 输入提示限定的城市
 	LogReqs    bool          // 是否打印每个请求

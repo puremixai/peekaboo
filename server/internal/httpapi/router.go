@@ -18,6 +18,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -38,15 +39,19 @@ const DefaultCommentLimit = 20
 
 // Server 聚合依赖。
 type Server struct {
-	cfg config.Config
-	st  *store.Store
-	pl  *planner.Planner
-	am  *amap.Client
+	cfg   config.Config
+	st    *store.Store
+	pl    *planner.Planner
+	am    *amap.Client
+	proxy *http.Client // 用于 /_AMapService/ 反向代理
 }
 
 // New 创建 API 服务。
 func New(cfg config.Config, st *store.Store, pl *planner.Planner, am *amap.Client) *Server {
-	return &Server{cfg: cfg, st: st, pl: pl, am: am}
+	return &Server{
+		cfg: cfg, st: st, pl: pl, am: am,
+		proxy: &http.Client{Timeout: 30 * time.Second},
+	}
 }
 
 // Handler 返回装配好的 http.Handler。
@@ -58,6 +63,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/points/{id}", s.pointDetail)
 	mux.HandleFunc("POST /api/plan", s.plan)
 	mux.HandleFunc("GET /api/tips", s.tips)
+	// 高德 JS API 的安全密钥代理：前端只拿到 /_AMapService 这个地址，
+	// 真正的 securityJsCode 由本服务在转发时注入（见 amapProxy）。
+	mux.HandleFunc("/_AMapService/", s.amapProxy)
 	mux.Handle("/", s.staticSPA())
 
 	var h http.Handler = mux
@@ -67,6 +75,75 @@ func (s *Server) Handler() http.Handler {
 		h = logMW(h)
 	}
 	return h
+}
+
+/* ---------------- 高德安全密钥代理 ---------------- */
+
+// amapProxy 实现高德官方文档推荐的「代理服务器转发安全密钥」方案。
+//
+// 官方给了两种用法：
+//  1. 明文：window._AMapSecurityConfig = { securityJsCode: "xxx" }
+//     —— 密钥随页面下发，DevTools 里直接可见，官方明确「不建议在生产环境使用」。
+//  2. 代理：window._AMapSecurityConfig = { serviceHost: "https://你的域名/_AMapService" }
+//     —— 前端只知道代理地址，真实密钥留在服务端，转发时补上 &jscode=xxx。
+//
+// 本函数实现第 2 种。注意：代理的是「安全密钥」，不是 key 本身——
+// key 仍然必须出现在 <script src="...&key=xxx"> 里，那是 JS API 的固有设计，
+// 靠高德控制台的 Referer 白名单防护。
+func (s *Server) amapProxy(w http.ResponseWriter, r *http.Request) {
+	rest := strings.TrimPrefix(r.URL.Path, "/_AMapService")
+	if rest == "" || !strings.HasPrefix(rest, "/") {
+		writeErr(w, http.StatusBadRequest, "路径必须以 /_AMapService/ 开头")
+		return
+	}
+	// 按官方文档的映射关系选择上游
+	base := "https://restapi.amap.com"
+	if strings.HasPrefix(rest, "/v4/map/styles") {
+		base = "https://webapi.amap.com"
+	}
+
+	target := base + rest
+	if r.URL.RawQuery != "" {
+		target += "?" + r.URL.RawQuery
+	}
+	if s.cfg.AmapSec != "" {
+		sep := "&"
+		if !strings.Contains(target, "?") {
+			sep = "?"
+		}
+		target += sep + "jscode=" + url.QueryEscape(s.cfg.AmapSec)
+	}
+
+	req, err := http.NewRequestWithContext(r.Context(), r.Method, target, r.Body)
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, "构造上游请求失败")
+		return
+	}
+	// 只透传必要的头；刻意不转发 Accept-Encoding，
+	// 让 Go 的 transport 自己协商并解压，避免 Content-Encoding 与实际内容不符。
+	if ct := r.Header.Get("Content-Type"); ct != "" {
+		req.Header.Set("Content-Type", ct)
+	}
+	req.Header.Set("User-Agent", "beijing-camera-nav-proxy/1.0")
+
+	resp, err := s.proxy.Do(req)
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, "转发到高德失败: "+err.Error())
+		return
+	}
+	defer resp.Body.Close()
+
+	for k, vs := range resp.Header {
+		switch strings.ToLower(k) {
+		case "content-encoding", "content-length", "transfer-encoding", "connection":
+			continue // 由本服务重新协商
+		}
+		for _, v := range vs {
+			w.Header().Add(k, v)
+		}
+	}
+	w.WriteHeader(resp.StatusCode)
+	_, _ = io.Copy(w, io.LimitReader(resp.Body, 16<<20))
 }
 
 /* ---------------- 基础接口 ---------------- */
@@ -84,9 +161,17 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getConfig(w http.ResponseWriter, r *http.Request) {
+	// 只下发 JS API Key 与「安全密钥代理地址」，绝不下发 securityJsCode 本身。
+	// 配了 AMAP_SECURITY_CODE 时前端走 serviceHost 代理模式（官方推荐），
+	// 没配则前端不设 _AMapSecurityConfig，按无安全密钥的方式加载。
+	serviceHost := ""
+	if s.cfg.AmapSec != "" {
+		serviceHost = baseURL(r) + "/_AMapService"
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"jsKey":         s.cfg.AmapJSKey,
-		"securityCode":  s.cfg.AmapSec,
+		"serviceHost":   serviceHost,
+		"securityProxy": s.cfg.AmapSec != "",
 		"city":          s.cfg.City,
 		"center":        [2]float64{116.397045, 39.909729},
 		"zoom":          11,
@@ -96,6 +181,22 @@ func (s *Server) getConfig(w http.ResponseWriter, r *http.Request) {
 		"maxAreas":      planner.MaxAreas,
 		"edgeExM":       planner.EdgeExM,
 	})
+}
+
+// baseURL 推断服务对外地址，兼容反向代理（Nginx / 云负载均衡）。
+func baseURL(r *http.Request) string {
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	if v := r.Header.Get("X-Forwarded-Proto"); v != "" {
+		scheme = v
+	}
+	host := r.Host
+	if v := r.Header.Get("X-Forwarded-Host"); v != "" {
+		host = v
+	}
+	return scheme + "://" + host
 }
 
 // pointDTO 是点位对外结构。字段名刻意缩短，6288 个点位的体积差别很可观。

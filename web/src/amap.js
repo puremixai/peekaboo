@@ -4,7 +4,7 @@
 // 只能靠高德控制台的 Referer 白名单保护；真正敏感的 Web 服务 Key 只留在服务端。
 let pending = null
 
-export function loadAMap({ jsKey, securityCode }) {
+export function loadAMap({ jsKey, serviceHost, securityCode }) {
   if (window.AMap) return Promise.resolve(window.AMap)
   if (pending) return pending
 
@@ -13,8 +13,15 @@ export function loadAMap({ jsKey, securityCode }) {
       reject(new Error('服务端未配置 AMAP_JS_KEY'))
       return
     }
-    if (securityCode) {
-      // JS API 2.0 的安全密钥，必须在脚本加载前挂到 window 上
+    // 必须在 JS API 脚本加载之前挂到 window 上，否则设置无效。
+    //
+    // 优先走官方推荐的「代理服务器转发」：只暴露一个代理地址，
+    // 真正的 securityJsCode 留在服务端，由代理转发时补 &jscode=xxx。
+    // 明文方式（securityJsCode 直接写在这里）会让密钥在 DevTools 里一览无余，
+    // 官方明确不建议生产使用，因此只在服务端没配安全密钥时才退回。
+    if (serviceHost) {
+      window._AMapSecurityConfig = { serviceHost }
+    } else if (securityCode) {
       window._AMapSecurityConfig = { securityJsCode: securityCode }
     }
     const s = document.createElement('script')
