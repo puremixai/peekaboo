@@ -26,7 +26,15 @@ export default function App() {
   const [show, setShow] = useState({ points: true, corridor: true, near: true, areas: true, fit: true })
   const [lightbox, setLightbox] = useState(null) // { items, idx }
   const [locating, setLocating] = useState(false)
+  const [mapReady, setMapReady] = useState(false)
   const mapRef = useRef(null) // 地图实例，供定位后移动视野用
+
+  // 定位相关的守卫一律用 ref，不用 state：
+  // state 进 useCallback 依赖会让回调身份变化，自动定位的 useEffect 就会被反复触发。
+  const locatingRef = useRef(false)
+  const autoTriedRef = useRef(false) // 自动定位只尝试一次
+  const startRef = useRef(null)
+  startRef.current = start
 
   /* ---------- 启动：并行拉配置与点位 ---------- */
   useEffect(() => {
@@ -58,26 +66,53 @@ export default function App() {
     setPoint(kind, pt, `${pt[0].toFixed(6)}, ${pt[1].toFixed(6)}`)
   }, [setPoint])
 
-  /* ---------- 浏览器定位：把当前位置设为起点 ---------- */
-  const locateMe = useCallback(async () => {
-    if (locating) return
-    setLocating(true)
-    setStatus({ type: 'info', text: '正在定位…' })
-    try {
-      const r = await locateCurrentPosition()
-      const name = r.address || `我的位置（${r.lng.toFixed(6)}, ${r.lat.toFixed(6)}）`
-      setPoint('start', [r.lng, r.lat], name)
-      // 立即平移，不要动画——否则用户会看到地图慢慢飘过去
-      if (mapRef.current) mapRef.current.setZoomAndCenter(15, [r.lng, r.lat], true)
-      const acc = r.accuracy ? `，精度约 ${Math.round(r.accuracy)} 米` : ''
-      const via = r.locationType === 'ip' ? '（IP 定位）' : ''
-      setStatus({ type: 'ok', text: `已定位并设为起点：${name}${via}${acc}` })
-    } catch (e) {
-      setStatus({ type: 'err', text: '定位失败：' + e.message })
-    } finally {
-      setLocating(false)
-    }
-  }, [locating, setPoint])
+  /* ---------- 浏览器定位：把当前位置设为起点 ----------
+     auto=true 用于启动时的自动定位：文案更轻，失败只给提示不报错，
+     以免在未启用 HTTPS 的部署上每次打开都弹一条红色错误。 */
+  const locateMe = useCallback(
+    async ({ auto = false } = {}) => {
+      if (locatingRef.current) return
+      locatingRef.current = true
+      setLocating(true)
+      setStatus({ type: 'info', text: auto ? '正在定位当前位置…' : '正在定位…' })
+      try {
+        const r = await locateCurrentPosition()
+        const name = r.address || `我的位置（${r.lng.toFixed(6)}, ${r.lat.toFixed(6)}）`
+        setPoint('start', [r.lng, r.lat], name)
+        // 立即平移，不要动画——否则用户会看到地图慢慢飘过去
+        if (mapRef.current) mapRef.current.setZoomAndCenter(15, [r.lng, r.lat], true)
+        const acc = r.accuracy ? `，精度约 ${Math.round(r.accuracy)} 米` : ''
+        const via = r.locationType === 'ip' ? '（IP 定位）' : ''
+        setStatus({
+          type: 'ok',
+          text: `${auto ? '已自动定位' : '已定位'}并设为起点：${name}${via}${acc}`,
+        })
+      } catch (e) {
+        if (auto) {
+          setStatus({
+            type: 'info',
+            text: `未能自动定位（${e.message}）—— 可点起点右侧「定位」重试，或直接输入地址`,
+          })
+        } else {
+          setStatus({ type: 'err', text: '定位失败：' + e.message })
+        }
+      } finally {
+        locatingRef.current = false
+        setLocating(false)
+      }
+    },
+    [setPoint],
+  )
+
+  /* ---------- 启动时自动定位当前位置（只跑一次） ----------
+     必须等 mapReady：地图 complete 之前调 setZoomAndCenter 会被丢弃。
+     若用户抢先设了起点，则放弃自动定位，不覆盖用户输入。 */
+  useEffect(() => {
+    if (!config || !mapReady || autoTriedRef.current) return
+    autoTriedRef.current = true
+    if (startRef.current) return
+    locateMe({ auto: true })
+  }, [config, mapReady, locateMe])
 
   /* ---------- 规划 ---------- */
   const onPlan = useCallback(async () => {
@@ -189,6 +224,7 @@ export default function App() {
         onReady={(m) => {
           window.__navMap = m
           mapRef.current = m
+          setMapReady(true)
         }}
       />
       {lightbox && (

@@ -314,7 +314,7 @@ function AddressInput({ label, value, placeholder, pickMode, onPickMode, onSelec
         {onLocate && (
           <button
             className="pick"
-            onClick={onLocate}
+            onClick={() => onLocate()}
             disabled={locating}
             title="用浏览器定位到的当前位置作为起点"
           >
