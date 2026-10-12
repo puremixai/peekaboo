@@ -1,0 +1,63 @@
+# 北京进京摄像头避让导航 —— 一键部署
+#
+#   cp .env.example .env    # 填入高德 Key
+#   docker compose up -d --build
+#   浏览器打开 http://localhost:8080
+#
+# 高德 Key 只作为环境变量注入容器，不会写进镜像层，也不会下发到浏览器
+# （浏览器只会拿到 AMAP_JS_KEY，那是必须暴露的 Web 端 Key）。
+
+services:
+  nav:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: beijing-camera-nav:latest
+    container_name: beijing-camera-nav
+    restart: unless-stopped
+
+    ports:
+      - "${PORT:-8080}:8080"
+
+    environment:
+      # ---- 高德 Key（必填，从 .env 读取） ----
+      AMAP_WEB_KEY: ${AMAP_WEB_KEY:-}
+      # 不填则复用 AMAP_WEB_KEY
+      AMAP_JS_KEY: ${AMAP_JS_KEY:-}
+      # JS API 2.0 安全密钥，可选
+      AMAP_SECURITY_CODE: ${AMAP_SECURITY_CODE:-}
+
+      # ---- 其它 ----
+      AMAP_CITY: ${AMAP_CITY:-北京}
+      LOG_REQUESTS: ${LOG_REQUESTS:-false}
+      # 单次调用高德接口的超时（秒）
+      AMAP_TIMEOUT_SEC: ${AMAP_TIMEOUT_SEC:-20}
+      TZ: Asia/Shanghai
+
+    # 数据已打包进镜像。若想改用宿主机上的 JSON（比如刚重新抓取过），
+    # 取消下面注释即可覆盖镜像内数据，改完只需 restart，不用重新 build：
+    #
+    # volumes:
+    #   - ./cameras.json:/app/data/cameras.json:ro
+    #   - ./details.json:/app/data/details.json:ro
+    #   - ./comments.json:/app/data/comments.json:ro
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+    # 规划接口最长要跑一两分钟（串行调用高德十几二十次），
+    # 反代/网关的超时也要相应放宽。
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    deploy:
+      resources:
+        limits:
+          memory: 512M

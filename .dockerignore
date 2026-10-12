@@ -1,0 +1,67 @@
+# 构建上下文里不需要的东西。
+# 注意：cameras.json / details.json / comments.json 必须保留——镜像要把它们打包进 /app/data。
+
+# 版本控制与编辑器
+.git
+.gitignore
+.gitattributes
+.workbuddy-ai
+.vscode
+.idea
+
+# 前端依赖与产物：镜像里会重新构建
+web/node_modules
+web/dist
+
+# 被 Go + React 版本取代的旧单文件应用与其构建脚本（保留在仓库里备查，但不进镜像）
+app_template.html
+build_app.py
+北京进京摄像头避让导航.html
+
+# 第三方站点镜像与样例（体积大、含原站自己的 Key）
+index.html
+detail_sample.html
+
+# 抓取与测试的中间产物
+scrape.log
+comments.log
+plans.json
+details_failed.json
+comments_failed.json
+shot_base.png
+shot_best.png
+shot_corridor.png
+shot_lightbox.png
+shot_popup.png
+shot_verify.png
+shot_comments.png
+shot_fit_1280x720.png
+shot_fit_1500x900.png
+shot_go_popup.png
+避让方案对比.png
+test_app_final.js
+test_app_v3.js
+test_corridor.js
+test_comments.js
+test_coverage.js
+test_detail.js
+test_diag.js
+test_full.js
+test_general.js
+test_go_app.js
+test_pareto.js
+test_popup.js
+test_popupfit.js
+test_regress.js
+test_route.js
+test_shots.js
+test_shots2.js
+test_states.js
+test_sweep.js
+test_tune.js
+
+# 密钥与本地配置
+amap_key.txt
+
+# 文档
+README.md

@@ -13,6 +13,16 @@ node_modules/
 # build_app.py 构建时从这里读取真实 Key 注入页面，源码里只有 __AMAP_KEY__ 占位符。
 # 新建方式：复制 amap_key.txt.example 为 amap_key.txt，写入你自己的 Key。
 amap_key.txt
+# docker compose 的环境变量文件（含 AMAP_WEB_KEY 等，复制 .env.example 生成）
+.env
+
+# ==================== 前端依赖 ====================
+web/node_modules/
+# 前端构建产物：镜像里会重新构建，不进版本库
+web/dist/
+
+# Docker 构建日志
+build.log
 
 # ==================== 构建产物 / 第三方镜像 ====================
 # 单文件应用：构建时会把真实 Key 注入进去，因此不进版本库。
