@@ -28,7 +28,9 @@ detail_sample.html
 
 # ==================== 抓取过程产物 ====================
 scrape.log
+comments.log
 details_failed.json
+comments_failed.json
 
 # ==================== 临时中间产物 ====================
 # 由 test_*.js / build_app.py 导出，可随时重新生成

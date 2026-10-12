@@ -80,7 +80,8 @@
   .fly{display:block;cursor:pointer;color:#8a5a00;text-decoration:underline;text-underline-offset:2px;margin-top:3px}
   .fly:hover{color:#c07a00}
   /* 点位详情弹窗（照搬原站「名称 + 详细信息」结构，并补全字段） */
-  .pop{font-size:12.5px;line-height:1.6;color:#1f2329;min-width:250px;max-width:330px}
+  .pop{font-size:12.5px;line-height:1.6;color:#1f2329;min-width:250px;max-width:330px;
+       max-height:62vh;overflow-y:auto;overscroll-behavior:contain}
   .pop-h{display:flex;gap:6px;align-items:flex-start;margin-bottom:7px}
   .pop-tag{flex:none;font-size:10px;color:#fff;border-radius:4px;padding:1px 5px;font-weight:700;margin-top:2px;line-height:1.5}
   .pop-name{font-weight:700;font-size:13px;line-height:1.45}
@@ -89,7 +90,7 @@
   .pop-tb td:first-child{color:#6b7280;width:64px}
   .pop-tb td:last-child{font-weight:500;word-break:break-all}
   .pop-new{display:inline-block;font-size:10px;background:#ffe8e8;color:#d32f2f;border-radius:3px;padding:0 4px;margin-left:4px;font-weight:600}
-  .pop-imgs{margin-top:8px;max-height:250px;overflow-y:auto}
+  .pop-imgs{margin-top:8px}
   .pop-img{display:block;width:100%;max-height:168px;object-fit:contain;background:#f2f4f8;
            border:1px solid #e3e6ea;border-radius:6px;cursor:zoom-in;margin-bottom:6px}
   .pop-img:hover{border-color:#2f6fed}
@@ -99,6 +100,18 @@
            text-decoration:underline;text-underline-offset:2px}
   .pop-src:hover{color:#2f6fed}
   .pop-tip{margin-top:6px;font-size:10.5px;color:#9aa3af;line-height:1.5}
+  /* 车主实况评论 */
+  .pop-cm{margin-top:9px;border-top:1px solid #eef0f3;padding-top:8px}
+  .pop-cm-h{font-size:11.5px;color:#4b5563;font-weight:700;margin-bottom:5px}
+  .pop-cm-h b{color:#d32f2f;font-weight:700}
+  .pop-cm-h span{font-weight:400;color:#9aa3af}
+  .pop-cm-list{margin-top:2px}
+  .cm{padding:5px 0;border-bottom:1px dashed #eef0f3}
+  .cm:last-child{border-bottom:none}
+  .cm-m{display:flex;justify-content:space-between;gap:8px;font-size:10.5px;color:#9aa3af;line-height:1.5}
+  .cm-who{color:#2f6fed;font-weight:600;flex:none}
+  .cm-t{flex:none}
+  .cm-b{font-size:12px;color:#1f2329;line-height:1.55;margin-top:1px;white-space:pre-line;word-break:break-word}
   /* 截图放大查看（页内，不跳转） */
   #lightbox{position:fixed;inset:0;background:rgba(15,18,22,.93);z-index:10000;display:none;
             align-items:center;justify-content:center;flex-direction:column;gap:12px;cursor:zoom-out;padding:26px}
@@ -235,6 +248,9 @@ var CAMERAS = /*__CAMERA_DATA__*/;
 var ICONS = /*__ICONS__*/;
 // 详情页抓取结果：{ "<原站详情ID>": ["2026/10/8 23:34:43", [["/upload/image/..jpg","图片标题"], ...]] }
 var DETAILS = /*__DETAILS__*/;
+// 车主实况评论：{ "<原站详情ID>": [总条数, [["2026/1/17 22:23:51","津A","修路全拆了，放心走"], ...]] }
+// 列表为最近 N 条（新→旧），总条数为原站全量
+var COMMENTS = /*__COMMENTS__*/;
 document.getElementById('cnt').textContent = CAMERAS.length;
 
 // 类型文字说明（5/4/6 取自原站「关于本站」图例；1、2 原站未给出文字定义）
@@ -265,6 +281,12 @@ var PLANS = [], selPlan = -1, BASE_DIST = 0, BASE_NEAR = 0, TARGET_ALL = false, 
 /* ============================== 工具 ============================== */
 var R_EARTH = 6371000, D2R = Math.PI/180;
 function $(id){ return document.getElementById(id); }
+/* 转义：评论内容与点位名称均来自第三方网站，必须转义后再拼进 HTML */
+function esc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, function(ch){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+  });
+}
 function toast(msg, ms){ var t=$('toast'); t.textContent=msg; t.style.display='block';
   clearTimeout(t._t); t._t=setTimeout(function(){ t.style.display='none'; }, ms||2600); }
 function fmtKm(m){ return (m/1000).toFixed(2)+' km'; }
@@ -294,7 +316,7 @@ function daysAgo(dstr){
   if(isNaN(t)) return null;
   return Math.floor((Date.now()-t)/86400000);
 }
-function cameraPopupHTML(i){
+function cameraPopupHTML(i, maxH){
   var c = CAMERAS[i], aa = c[2];
   var color = COLOR[aa] || '#6b7280';
   var days = daysAgo(c[4]);
@@ -304,15 +326,16 @@ function cameraPopupHTML(i){
   var exact = (!isMissing && det && det[0]) ? det[0] : '';
   var imgs  = (!isMissing && det && det[1]) ? det[1] : [];
   var href = c[6] ? (SITE + '/content/?' + c[6] + '.html') : '';
+  var cm = COMMENTS[c[6]];                     // [总条数, [[时间, 评论者, 内容], ...]]
 
-  var h = '<div class="pop">'+
+  var h = '<div class="pop"'+(maxH ? ' style="max-height:'+maxH+'px"' : '')+'>'+
     '<div class="pop-h"><span class="pop-tag" style="background:'+color+'">类型 '+aa+'</span>'+
-    '<span class="pop-name">'+c[3]+'</span></div>'+
+    '<span class="pop-name">'+esc(c[3])+'</span></div>'+
     '<table class="pop-tb">'+
       '<tr><td>类型</td><td>'+aa+' · '+(AA_NAME[aa]||'未分类')+'</td></tr>'+
-      '<tr><td>更新时间</td><td>'+c[4]+(days!==null&&days<=3?'<span class="pop-new">3 天内更新</span>':'')+'</td></tr>';
-  if(exact) h += '<tr><td>精确时间</td><td>'+exact+'</td></tr>';
-  if(c[5]) h += '<tr><td>修改时间</td><td>'+c[5]+'</td></tr>';
+      '<tr><td>更新时间</td><td>'+esc(c[4])+(days!==null&&days<=3?'<span class="pop-new">3 天内更新</span>':'')+'</td></tr>';
+  if(exact) h += '<tr><td>精确时间</td><td>'+esc(exact)+'</td></tr>';
+  if(c[5]) h += '<tr><td>修改时间</td><td>'+esc(c[5])+'</td></tr>';
   h += '<tr><td>坐标</td><td>'+c[0]+', '+c[1]+'</td></tr></table>';
 
   // 原站详情页的违章截图（直接引用原站图片，点击可放大）
@@ -322,7 +345,7 @@ function cameraPopupHTML(i){
   } else if(imgs.length){
     h += '<div class="pop-imgs">';
     imgs.forEach(function(im, k){
-      h += '<img class="pop-img" data-k="'+k+'" src="'+SITE+im[0]+'" alt="'+im[1]+'" title="'+im[1]+'">';
+      h += '<img class="pop-img" data-k="'+k+'" src="'+SITE+im[0]+'" alt="'+esc(im[1])+'" title="'+esc(im[1])+'">';
     });
     h += '</div><div class="pop-imgcap">原站违章截图 '+imgs.length+' 张 · 点击放大</div>';
   } else if(known){
@@ -330,15 +353,58 @@ function cameraPopupHTML(i){
   } else {
     h += '<div class="pop-noimg">暂无该点位的违章截图记录</div>';
   }
+
+  // 车主实况评论（原站按时间倒序，本地只保留最近 N 条）
+  if(cm && cm[1] && cm[1].length){
+    var total = cm[0] || cm[1].length;
+    h += '<div class="pop-cm"><div class="pop-cm-h">车主实况评论 <b>'+total+'</b> 条'+
+         (total > cm[1].length ? '<span>（显示最近 '+cm[1].length+' 条）</span>' : '')+
+         '</div><div class="pop-cm-list">';
+    cm[1].forEach(function(o){
+      h += '<div class="cm"><div class="cm-m"><span class="cm-who">'+esc(o[1]||'匿名')+'</span>'+
+           '<span class="cm-t">'+esc(o[0])+'</span></div>'+
+           '<div class="cm-b">'+esc(o[2])+'</div></div>';
+    });
+    h += '</div></div>';
+  } else if(cm){
+    h += '<div class="pop-cm"><div class="pop-cm-h">车主实况评论</div>'+
+         '<div class="pop-noimg">原站暂无车主评论</div></div>';
+  }
+
   if(href && !isMissing) h += '<a class="pop-src" href="'+href+'" target="_blank" rel="noopener">在原站打开此页</a>';
   h += '<div class="pop-tip">数据来源：进京网 jinjing365.com。类型文字说明以原站「关于本站」图例为准。</div></div>';
   return h;
 }
-var infoWin = null;
+var infoWin = null, curIdx = -1, popupReopenGuard = 0;
 function showCameraInfo(i){
+  if(i !== curIdx) popupReopenGuard = 0;       // 换点位时重置兜底计数
   var c = CAMERAS[i];
-  if(!infoWin) infoWin = new AMap.InfoWindow({ offset:new AMap.Pixel(0,-14), autoMove:true });
-  infoWin.setContent(cameraPopupHTML(i));
+  curIdx = i;
+
+  // 弹窗含截图与评论，可能很高。两条 AMap 行为决定了这里的写法：
+  //  1) InfoWindow 是「一次性定位」的——open() 之后再改内容高度不会重算位置，锚点就断了；
+  //  2) offset 只是整体平移，正负并不能把弹窗翻到点位下方。
+  // 因此统一锚在点位上方，靠「限制最大高度」保证不溢出视口；
+  // 若点位太靠上导致上方空间不足，就先无动画平移地图把它压下来。
+  var M = 60;                                  // InfoWindow 内边距(实测约23px) + 视口留白 + 余量
+  var MIN_ABOVE = 320;                         // 希望至少留出的上方空间
+  var above = window.innerHeight * 0.5 - M;
+  try{
+    var pt   = map.lngLatToContainer(new AMap.LngLat(c[0], c[1]));
+    var cont = map.getContainer().getBoundingClientRect();
+    above = (cont.top + pt.getY()) - M;
+    if(above < MIN_ABOVE){
+      var dLat = pixelsToMeters(MIN_ABOVE - above, c[1], map.getZoom()) / 111320;
+      map.setCenter([c[0], c[1] + dLat], true);          // 立即平移，无动画
+      pt = map.lngLatToContainer(new AMap.LngLat(c[0], c[1]));
+      above = (cont.top + pt.getY()) - M;
+    }
+  }catch(e){ /* 取不到位置就用默认上限 */ }
+  var maxH = Math.floor(Math.max(200, Math.min(above, window.innerHeight * 0.62)));
+
+  if(infoWin){ infoWin.close(); infoWin = null; }        // 重建才能应用新内容与尺寸
+  infoWin = new AMap.InfoWindow({ offset:new AMap.Pixel(0,-14), autoMove:false });
+  infoWin.setContent(cameraPopupHTML(i, maxH));
   infoWin.open(map, [c[0], c[1]]);
   // 弹窗内容每次都是新节点，需重新绑定图片放大
   setTimeout(bindPopupImages, 0);
@@ -519,7 +585,19 @@ function initMap(){
     map.addControl(new AMap.Scale()); map.addControl(new AMap.ToolBar({position:'RB'}));
   });
   map.on('zoomchange', syncCorridor);
-  map.on('moveend', syncCorridor);
+  map.on('moveend', function(){
+    syncCorridor();
+    // 兜底：若在地图动画途中打开了弹窗，当时的屏幕位置是旧值、高度可能算错；
+    // 等地图停稳后复查一次，溢出就按新位置重开。
+    if(curIdx < 0 || !infoWin || popupReopenGuard >= 2) return;
+    var el = document.querySelector('.pop');
+    if(!el) return;
+    var r = el.getBoundingClientRect();
+    if(r.top < 2 || r.bottom > window.innerHeight - 2){
+      popupReopenGuard++;
+      showCameraInfo(curIdx);
+    }
+  });
   map.on('click',function(e){ handleMapClick([e.lnglat.getLng(), e.lnglat.getLat()]); });
   renderCameras();
 }

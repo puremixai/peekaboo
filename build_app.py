@@ -95,13 +95,33 @@ if os.path.exists(dpath):
 print('详情页数据: %d 条（带截图 %d 条 · 原站已失效 %d 条）' % (
     len(details), sum(1 for v in details.values() if v != 1 and v[1]), missing))
 
+# 车主评论：{ "<id>": [总条数, [[时间, 评论者, 内容], ...]] }
+# 原站按时间倒序返回，只内嵌最近 COMMENT_KEEP 条——摄像头是否还在拍是时变的，
+# 越新的评论越有价值；同时这也是控制单文件体积的主要手段。
+COMMENT_KEEP = int(os.environ.get('COMMENT_KEEP', '8'))
+comments = {}
+n_cm = 0
+cpath = os.path.join(BASE, os.environ.get('COMMENT_SRC', 'comments.json'))
+if os.path.exists(cpath):
+    raw_cm = json.load(open(cpath, encoding='utf-8'))
+    for cid, lst in raw_cm.items():
+        if not lst:
+            continue
+        keep = [[t, w, x] for t, w, x in lst[:COMMENT_KEEP]]
+        comments[cid] = [len(lst), keep]
+        n_cm += len(lst)
+print('车主评论: %d 个点位 / 共 %d 条（每点位最多内嵌最近 %d 条）' % (
+    len(comments), n_cm, COMMENT_KEEP))
+
 tpl = open(os.path.join(BASE, 'app_template.html'), encoding='utf-8').read()
 assert '/*__CAMERA_DATA__*/' in tpl and '/*__ICONS__*/' in tpl
+assert '/*__DETAILS__*/' in tpl and '/*__COMMENTS__*/' in tpl
 assert '__AMAP_KEY__' in tpl, '模板缺少 __AMAP_KEY__ 占位符'
 out = tpl.replace('__AMAP_KEY__', AMAP_KEY)
 out = out.replace('/*__CAMERA_DATA__*/', json.dumps(arr, ensure_ascii=False, separators=(',',':')))
 out = out.replace('/*__ICONS__*/', json.dumps(ICONS, ensure_ascii=False, separators=(',',':')))
 out = out.replace('/*__DETAILS__*/', json.dumps(details, ensure_ascii=False, separators=(',',':')))
+out = out.replace('/*__COMMENTS__*/', json.dumps(comments, ensure_ascii=False, separators=(',',':')))
 
 dst = os.path.join(BASE, OUT_PATH)
 open(dst, 'w', encoding='utf-8').write(out)
