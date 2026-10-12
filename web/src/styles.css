@@ -722,13 +722,6 @@ button.ghost {
   color: var(--accent);
 }
 
-.popup-tip {
-  margin-top: 6px;
-  font-size: 10.5px;
-  color: #9aa3af;
-  line-height: 1.5;
-}
-
 /* ==================== 大图 ==================== */
 .lb {
   position: fixed;

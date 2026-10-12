@@ -153,7 +153,20 @@ async function ensureView(page, lng, lat, zoom = 15) {
 
   await p.screenshot({ path: 'shot_go_popup.png' })
 
-  if (errs.length) console.log('\n错误:\n' + errs.slice(0, 6).join('\n'))
-  else console.log('\n无 JS 错误 ✔')
+  // 页面不应再出现数据来源相关文案（已按需求从 UI 移除）。
+  // 注意：jinjing365.com 这个域名本身必须保留——详情页链接与违章截图都靠它拼绝对地址。
+  const pageText = await p.evaluate(() => document.body.innerText)
+  const leaked = ['数据来源', '进京网', '原站', '关于本站'].filter((s) => pageText.includes(s))
+  if (leaked.length) {
+    errs.push('[页面残留来源文案] ' + leaked.join(', '))
+    console.log('\n页面残留来源文案 ✘ :', leaked.join(', '))
+  } else {
+    console.log('\n页面无数据来源文案 ✔')
+  }
+
+  if (errs.length) {
+    console.log('\n错误:\n' + errs.slice(0, 6).join('\n'))
+    process.exitCode = 1
+  } else console.log('\n无 JS 错误 ✔')
   await b.close()
 })()

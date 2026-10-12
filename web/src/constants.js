@@ -1,5 +1,5 @@
-// 业务常量。类型文字说明以原站「关于本站」图例为准：
-// 5 / 4 / 6 是原站给出的，1 和 2 原站未定义文字，这里按语义补上。
+// 业务常量。类型文字说明以图例为准：
+// 5 / 4 / 6 是图例给出的，1 和 2 未定义文字，这里按语义补上。
 export const TYPE_NAME = {
   1: '其他点位',
   2: '主要抓拍点位',
@@ -19,7 +19,7 @@ export const TYPE_COLOR = {
 
 export const RED_TYPE = '2'
 
-// 原站资源
+// 上游资源地址。详情页链接与违章截图都从这里拼绝对地址，属功能必需，不可删除。
 export const SITE = 'https://www.jinjing365.com'
 export const IMG_PREFIX = '/upload/image/' // 详情页图片路径前缀
 

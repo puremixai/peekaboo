@@ -64,8 +64,8 @@ export default function Sidebar({
       <header className="side-head">
         <h1>幽州迂道览胜舆</h1>
         <p>
-          数据来源 <b>jinjing365.com</b>，共 <b>{points.length || '—'}</b> 个点位（坐标 GCJ-02）。
-          点击地图上任意点位即可就地查看原站详情（精确到秒的更新时间 + 违章截图 + 车主评论）。
+          共 <b>{points.length || '—'}</b> 个点位（坐标 GCJ-02）。
+          点击地图上任意点位即可就地查看详情（精确到秒的更新时间 + 违章截图 + 车主评论）。
         </p>
       </header>
 
@@ -241,7 +241,7 @@ export default function Sidebar({
           ))}
         </ul>
         <p className="hint">
-          类型文字说明以原站「关于本站」图例为准；1、2 原站未给出文字定义，此处按语义补注。
+          类型文字说明以图例为准；1、2 未给出文字定义，此处按语义补注。
         </p>
       </section>
 

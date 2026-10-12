@@ -88,12 +88,12 @@ export default function PointPopup({ point, place, onLightbox, onClose }) {
 
       {err && <div className="popup-note err">详情加载失败：{err}</div>}
 
-      {!data && !err && <div className="popup-note">正在加载原站详情与车主评论…</div>}
+      {!data && !err && <div className="popup-note">正在加载详情与车主评论…</div>}
 
       {data && (
         <>
           {missing ? (
-            <div className="popup-note">原站详情页已失效（原站已删除该点位页面），仅保留上方基础信息</div>
+            <div className="popup-note">详情页已失效（该点位页面已不存在），仅保留上方基础信息</div>
           ) : imgs.length ? (
             <>
               <div className="popup-imgs">
@@ -109,10 +109,10 @@ export default function PointPopup({ point, place, onLightbox, onClose }) {
                   />
                 ))}
               </div>
-              <div className="popup-cap">原站违章截图 {imgs.length} 张 · 点击放大</div>
+              <div className="popup-cap">违章截图 {imgs.length} 张 · 点击放大</div>
             </>
           ) : (
-            <div className="popup-note">原站该点位未上传违章截图</div>
+            <div className="popup-note">该点位未上传违章截图</div>
           )}
 
           {comments.length > 0 ? (
@@ -136,7 +136,7 @@ export default function PointPopup({ point, place, onLightbox, onClose }) {
           ) : (
             <div className="popup-cm">
               <div className="popup-cm-h">车主实况评论</div>
-              <div className="popup-note">原站暂无车主评论</div>
+              <div className="popup-note">暂无车主评论</div>
             </div>
           )}
         </>
@@ -144,12 +144,9 @@ export default function PointPopup({ point, place, onLightbox, onClose }) {
 
       {!missing && (
         <a className="popup-src" href={href} target="_blank" rel="noopener noreferrer">
-          在原站打开此页
+          打开详情页
         </a>
       )}
-      <div className="popup-tip">
-        数据来源：进京网 jinjing365.com。类型文字说明以原站「关于本站」图例为准。
-      </div>
     </div>
   )
 }
