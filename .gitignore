@@ -1,3 +1,7 @@
+# 注意：根目录专用的规则一律加前导 `/`。
+# 不加的话 gitignore 会匹配任意层级——`index.html` 曾因此误伤 `web/index.html`
+# （Vite 的入口文件），导致干净克隆构建不出前端。
+
 # ==================== 操作系统 / 编辑器 ====================
 .DS_Store
 Thumbs.db
@@ -10,76 +14,76 @@ node_modules/
 web/node_modules/
 # 前端产物由镜像内重新构建，不进版本库
 web/dist/
-build.log
+/build.log
 
 # ==================== 敏感信息：切勿提交 ====================
-# 高德 Key 的本地文件。本地起服务时用 AMAP_WEB_KEY=$(cat amap_key.txt) 传入；
-# 部署走 .env（docker compose 读取）。
+# 这两条故意不加 `/`：任何层级的 .env / Key 文件都不该进版本库。
+# 本地起服务：AMAP_WEB_KEY=$(cat amap_key.txt)；部署走 .env（docker compose 读取）。
 amap_key.txt
 .env
 
 # ==================== 已废弃：单文件版遗留代码 ====================
 # 当前架构是 server/（Go 后端）+ web/（React 前端），下面这些是旧单文件 HTML 版本的
 # 源码与配套脚本，已完全被取代，只保留在本地备查，不进版本库。
-app_template.html
-build_app.py
-make_compare.py
-make_test_page.py
+/app_template.html
+/build_app.py
+/make_compare.py
+/make_test_page.py
 
 # 旧版调试脚本。当前架构的端到端测试只有 test_go_app.js
-test_app_final.js
-test_app_v3.js
-test_comments.js
-test_corridor.js
-test_coverage.js
-test_detail.js
-test_diag.js
-test_full.js
-test_general.js
-test_pareto.js
-test_popup.js
-test_popupfit.js
-test_regress.js
-test_route.js
-test_shot_final.js
-test_shots.js
-test_shots2.js
-test_states.js
-test_sweep.js
-test_tune.js
+/test_app_final.js
+/test_app_v3.js
+/test_comments.js
+/test_corridor.js
+/test_coverage.js
+/test_detail.js
+/test_diag.js
+/test_full.js
+/test_general.js
+/test_pareto.js
+/test_popup.js
+/test_popupfit.js
+/test_regress.js
+/test_route.js
+/test_shot_final.js
+/test_shots.js
+/test_shots2.js
+/test_states.js
+/test_sweep.js
+/test_tune.js
 
 # ==================== 开发过程产物 ====================
 # 调试留档截图
-shot_*.png
-避让方案对比.png
+/shot_*.png
+/避让方案对比.png
 
 # 抓取过程日志与失败记录
-scrape.log
-comments.log
-details_failed.json
-comments_failed.json
+/scrape.log
+/comments.log
+/details_failed.json
+/comments_failed.json
 
 # 可由脚本重新生成的派生数据。
 # 注意：cameras.json / details.json / comments.json 是服务运行时必需的，不在此列。
-cameras.csv
-北京进京证摄像头坐标.xlsx
+/cameras.csv
+/北京进京证摄像头坐标.xlsx
 
 # 一次性临时文件（下划线开头）与测试中间导出
-_*
-plans.json
+/_*
+/plans.json
 
 # ==================== 第三方站点镜像 ====================
 # 原站整站镜像：体积大，且内含原站自己的高德 Key。
 # extract_coords.py 在缺失时会自动从原站重新下载。
-index.html
+/index.html
 # 原站详情页样例：仅用于推导解析规则，规则已固化在 fetch_details.py 中
-detail_sample.html
+/detail_sample.html
 # 单文件应用产物（构建时注入真实 Key）
-北京进京摄像头避让导航.html
+/北京进京摄像头避让导航.html
 
 # ==================== 工作区内部记录 ====================
 # agent 的工作日志，属于工具数据而非项目代码
-.workbuddy-ai/
+/.workbuddy-ai/
 
 # ==================== Python ====================
 __pycache__/
