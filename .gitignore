@@ -5,49 +5,81 @@ desktop.ini
 *.swp
 *~
 
-# ==================== 依赖 ====================
+# ==================== 依赖与构建产物 ====================
 node_modules/
-
-# ==================== 敏感信息：切勿提交 ====================
-# 高德地图 Key 的本地配置文件。
-# build_app.py 构建时从这里读取真实 Key 注入页面，源码里只有 __AMAP_KEY__ 占位符。
-# 新建方式：复制 amap_key.txt.example 为 amap_key.txt，写入你自己的 Key。
-amap_key.txt
-# docker compose 的环境变量文件（含 AMAP_WEB_KEY 等，复制 .env.example 生成）
-.env
-
-# ==================== 前端依赖 ====================
 web/node_modules/
-# 前端构建产物：镜像里会重新构建，不进版本库
+# 前端产物由镜像内重新构建，不进版本库
 web/dist/
-
-# Docker 构建日志
 build.log
 
-# ==================== 构建产物 / 第三方镜像 ====================
-# 单文件应用：构建时会把真实 Key 注入进去，因此不进版本库。
-# 需要时用 `python build_app.py` 自行生成（详见该脚本头部注释）。
-北京进京摄像头避让导航.html
+# ==================== 敏感信息：切勿提交 ====================
+# 高德 Key 的本地文件。本地起服务时用 AMAP_WEB_KEY=$(cat amap_key.txt) 传入；
+# 部署走 .env（docker compose 读取）。
+amap_key.txt
+.env
 
-# 原站首页整站镜像：体积大，且内含原站自己的高德 Key。
-# extract_coords.py 在缺失时会自动从原站重新下载。
-index.html
+# ==================== 已废弃：单文件版遗留代码 ====================
+# 当前架构是 server/（Go 后端）+ web/（React 前端），下面这些是旧单文件 HTML 版本的
+# 源码与配套脚本，已完全被取代，只保留在本地备查，不进版本库。
+app_template.html
+build_app.py
+make_compare.py
+make_test_page.py
 
-# 原站详情页样例：仅用于推导解析规则的临时参考，规则已固化在 fetch_details.py 中。
-detail_sample.html
+# 旧版调试脚本。当前架构的端到端测试只有 test_go_app.js
+test_app_final.js
+test_app_v3.js
+test_comments.js
+test_corridor.js
+test_coverage.js
+test_detail.js
+test_diag.js
+test_full.js
+test_general.js
+test_pareto.js
+test_popup.js
+test_popupfit.js
+test_regress.js
+test_route.js
+test_shot_final.js
+test_shots.js
+test_shots2.js
+test_states.js
+test_sweep.js
+test_tune.js
 
-# ==================== 抓取过程产物 ====================
+# ==================== 开发过程产物 ====================
+# 调试留档截图
+shot_*.png
+避让方案对比.png
+
+# 抓取过程日志与失败记录
 scrape.log
 comments.log
 details_failed.json
 comments_failed.json
 
-# ==================== 临时中间产物 ====================
-# 由 test_*.js / build_app.py 导出，可随时重新生成
-plans.json
-# 下划线开头：一次性快照、测试页、临时脚本
+# 可由脚本重新生成的派生数据。
+# 注意：cameras.json / details.json / comments.json 是服务运行时必需的，不在此列。
+cameras.csv
+北京进京证摄像头坐标.xlsx
+
+# 一次性临时文件（下划线开头）与测试中间导出
 _*
-shot_state_*.png
+plans.json
+
+# ==================== 第三方站点镜像 ====================
+# 原站整站镜像：体积大，且内含原站自己的高德 Key。
+# extract_coords.py 在缺失时会自动从原站重新下载。
+index.html
+# 原站详情页样例：仅用于推导解析规则，规则已固化在 fetch_details.py 中
+detail_sample.html
+# 单文件应用产物（构建时注入真实 Key）
+北京进京摄像头避让导航.html
+
+# ==================== 工作区内部记录 ====================
+# agent 的工作日志，属于工具数据而非项目代码
+.workbuddy-ai/
 
 # ==================== Python ====================
 __pycache__/

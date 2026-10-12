@@ -13,55 +13,34 @@
 web/node_modules
 web/dist
 
-# 被 Go + React 版本取代的旧单文件应用与其构建脚本（保留在仓库里备查，但不进镜像）
+# 单文件版遗留代码（已从版本库移除，本地仍可能残留）
 app_template.html
 build_app.py
+make_compare.py
+make_test_page.py
 北京进京摄像头避让导航.html
 
-# 第三方站点镜像与样例（体积大、含原站自己的 Key）
+# 第三方站点镜像（体积大，且含原站自己的 Key）
 index.html
 detail_sample.html
 
-# 抓取与测试的中间产物
+# 本地调试脚本与截图（同样已从版本库移除，本地可能残留）
+test_*.js
+shot_*.png
+避让方案对比.png
+
+# 抓取过程与派生数据
 scrape.log
 comments.log
 plans.json
 details_failed.json
 comments_failed.json
-shot_base.png
-shot_best.png
-shot_corridor.png
-shot_lightbox.png
-shot_popup.png
-shot_verify.png
-shot_comments.png
-shot_fit_1280x720.png
-shot_fit_1500x900.png
-shot_go_popup.png
-避让方案对比.png
-test_app_final.js
-test_app_v3.js
-test_corridor.js
-test_comments.js
-test_coverage.js
-test_detail.js
-test_diag.js
-test_full.js
-test_general.js
-test_go_app.js
-test_pareto.js
-test_popup.js
-test_popupfit.js
-test_regress.js
-test_route.js
-test_shots.js
-test_shots2.js
-test_states.js
-test_sweep.js
-test_tune.js
+cameras.csv
+北京进京证摄像头坐标.xlsx
 
 # 密钥与本地配置
 amap_key.txt
+.env
 
 # 文档
 README.md
