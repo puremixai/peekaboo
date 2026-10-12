@@ -30,7 +30,7 @@ amap_key.txt
 /make_compare.py
 /make_test_page.py
 
-# 旧版调试脚本。当前架构的端到端测试只有 test_go_app.js
+# 旧版调试脚本。当前架构的端到端测试只有 test_go_app.js 与 test_locate.js
 /test_app_final.js
 /test_app_v3.js
 /test_comments.js

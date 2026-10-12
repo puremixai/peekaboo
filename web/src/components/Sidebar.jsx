@@ -9,6 +9,8 @@ export default function Sidebar({
   start,
   end,
   setPoint,
+  onLocate,
+  locating,
   pickMode,
   setPickMode,
   radius,
@@ -75,6 +77,8 @@ export default function Sidebar({
           pickMode={pickMode}
           onPickMode={() => setPickMode(pickMode === 'start' ? null : 'start')}
           onSelect={(pt, name) => setPoint('start', pt, name)}
+          onLocate={onLocate}
+          locating={locating}
         />
         <AddressInput
           label="终点"
@@ -251,7 +255,7 @@ export default function Sidebar({
 }
 
 /** 起终点输入框：带防抖的输入提示（走服务端 /api/tips 代理，Key 不外泄） */
-function AddressInput({ label, value, placeholder, pickMode, onPickMode, onSelect }) {
+function AddressInput({ label, value, placeholder, pickMode, onPickMode, onSelect, onLocate, locating }) {
   const [kw, setKw] = useState('')
   const [tips, setTips] = useState([])
   const [open, setOpen] = useState(false)
@@ -307,6 +311,16 @@ function AddressInput({ label, value, placeholder, pickMode, onPickMode, onSelec
             </ul>
           )}
         </div>
+        {onLocate && (
+          <button
+            className="pick"
+            onClick={onLocate}
+            disabled={locating}
+            title="用浏览器定位到的当前位置作为起点"
+          >
+            {locating ? '定位中' : '定位'}
+          </button>
+        )}
         <button className={pickMode ? 'pick on' : 'pick'} onClick={onPickMode} title="在地图上选点">
           地图选点
         </button>

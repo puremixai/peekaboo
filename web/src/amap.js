@@ -25,7 +25,8 @@ export function loadAMap({ jsKey, serviceHost, securityCode }) {
       window._AMapSecurityConfig = { securityJsCode: securityCode }
     }
     const s = document.createElement('script')
-    s.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(jsKey)}&plugin=AMap.Scale,AMap.ToolBar`
+    s.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(jsKey)}` +
+      `&plugin=AMap.Scale,AMap.ToolBar,AMap.Geolocation`
     s.async = true
     s.onload = () => (window.AMap ? resolve(window.AMap) : reject(new Error('高德 SDK 加载后未暴露 AMap')))
     s.onerror = () => reject(new Error('高德 SDK 脚本加载失败（检查网络或 Key 的域名白名单）'))

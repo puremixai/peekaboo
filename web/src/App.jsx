@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getConfig, getPoints, postPlan } from './api'
 import { STRATEGY_DEFAULT } from './constants'
+import { locateCurrentPosition } from './locate'
 import Lightbox from './components/Lightbox.jsx'
 import MapView from './components/MapView.jsx'
 import Sidebar from './components/Sidebar.jsx'
@@ -24,6 +25,8 @@ export default function App() {
 
   const [show, setShow] = useState({ points: true, corridor: true, near: true, areas: true, fit: true })
   const [lightbox, setLightbox] = useState(null) // { items, idx }
+  const [locating, setLocating] = useState(false)
+  const mapRef = useRef(null) // 地图实例，供定位后移动视野用
 
   /* ---------- 启动：并行拉配置与点位 ---------- */
   useEffect(() => {
@@ -54,6 +57,27 @@ export default function App() {
   const onPick = useCallback((kind, pt) => {
     setPoint(kind, pt, `${pt[0].toFixed(6)}, ${pt[1].toFixed(6)}`)
   }, [setPoint])
+
+  /* ---------- 浏览器定位：把当前位置设为起点 ---------- */
+  const locateMe = useCallback(async () => {
+    if (locating) return
+    setLocating(true)
+    setStatus({ type: 'info', text: '正在定位…' })
+    try {
+      const r = await locateCurrentPosition()
+      const name = r.address || `我的位置（${r.lng.toFixed(6)}, ${r.lat.toFixed(6)}）`
+      setPoint('start', [r.lng, r.lat], name)
+      // 立即平移，不要动画——否则用户会看到地图慢慢飘过去
+      if (mapRef.current) mapRef.current.setZoomAndCenter(15, [r.lng, r.lat], true)
+      const acc = r.accuracy ? `，精度约 ${Math.round(r.accuracy)} 米` : ''
+      const via = r.locationType === 'ip' ? '（IP 定位）' : ''
+      setStatus({ type: 'ok', text: `已定位并设为起点：${name}${via}${acc}` })
+    } catch (e) {
+      setStatus({ type: 'err', text: '定位失败：' + e.message })
+    } finally {
+      setLocating(false)
+    }
+  }, [locating, setPoint])
 
   /* ---------- 规划 ---------- */
   const onPlan = useCallback(async () => {
@@ -128,6 +152,8 @@ export default function App() {
         start={start}
         end={end}
         setPoint={setPoint}
+        onLocate={locateMe}
+        locating={locating}
         pickMode={pickMode}
         setPickMode={setPickMode}
         radius={radius}
@@ -162,6 +188,7 @@ export default function App() {
         // 把地图实例挂到 window，方便在浏览器控制台调试，也供端到端测试定位坐标
         onReady={(m) => {
           window.__navMap = m
+          mapRef.current = m
         }}
       />
       {lightbox && (

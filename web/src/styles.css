@@ -171,6 +171,11 @@ body {
   color: #fff;
 }
 
+.pick:disabled {
+  color: #c2c8d2;
+  cursor: not-allowed;
+}
+
 .addr-cur {
   font-size: 11px;
   color: #9aa3af;
